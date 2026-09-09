@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<!--
+  LOCKED TEMPLATE — cinematic-hud
+  Do not restructure this file's CSS or JS when reusing it. Copy it, then
+  substitute content only: brand name, kicker, headline words, sub, features,
+  stats, contact block, section labels, mood tokens (see :root), hero image.
+  See CLAUDE.md → METHODOLOGY → Template: cinematic-hud for the full spec.
+
+  Mood tokens (swap the whole :root block for a different mood):
+    DARK  bg #060503 sf #0E0B08 tx #EDE8E0 accent #C4763A  (Tech / Premium)
+    LIGHT bg #FAFAF9 sf #F2F0ED tx #1A1614 accent #2563EB  (B2B / Trust)
+    WARM  bg #0A0806 sf #140E08 tx #F5EDE4 accent #D4833A  (Food / Luxury)
+    MIN   bg #0A0A0A sf #141414 tx #FAFAFA accent #22D3EE  (SaaS / Digital)
+
+  Hero headline (#h1words): plain text, not the old nested .w/.wi spans —
+  GSAP SplitText now owns that element's DOM at runtime. Wrap whichever
+  phrase should be the accent color in <span class="hh-ac">...</span>;
+  everything else stays plain text. .stit headings elsewhere in the file
+  still use the old .w/.wi span-per-word markup (anime.js), unchanged.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>[Brand] — [One-line positioning]</title>
+<meta name="description" content="[150-character description for search engines]">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+<!-- GSAP: hero only (SplitText char reveal, ScrollTrigger pin + scrub). Sections
+     below hero keep anime.js — no reason to duplicate two animation engines
+     for the same simple fade/stagger work anime.js already does fine.
+     SplitText became a standard "no charge license" plugin bundled in core
+     GSAP as of 3.13 — verified against the published npm package (3.15.0)
+     before using it here, not assumed. -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/SplitText.min.js"></script>
+<style>
+:root{
+  --bg:#060503;--sf:#0E0B08;--tx:#EDE8E0;--ac:#C4763A;--sec:#6A5E54;
+  --b:#EDE8E01A;--bA:#C4763A44;--acD:#C4763A18;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+/* CSS scroll-snap removed: it forces discrete jumps to section boundaries,
+   which fights ScrollTrigger's pin on #hero (that needs smooth, continuous
+   scroll position — pin+snap fighting each other reads as jittery/broken
+   scrolling site-wide, not just in the hero). GSAP owns scroll behavior now. */
+html{overflow-y:scroll;height:100%}
+body{min-height:100%;background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;overflow-x:hidden;cursor:none}
+a{text-decoration:none;color:inherit}
+
+/* Custom cursor: lag-follow ring + solid dot. Disabled on touch/mobile. */
+#cur{position:fixed;width:6px;height:6px;background:var(--ac);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .15s,height .15s}
+#curR{position:fixed;width:28px;height:28px;border:1px solid var(--bA);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%)}
+
+/* Right-edge section dots */
+.dots{position:fixed;right:26px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:11px;z-index:100}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--sec);border:none;padding:0;cursor:none;transition:background .3s,transform .3s}
+.dot.on{background:var(--ac);transform:scale(1.8)}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:20px 48px;transition:background .3s}
+nav.s{background:color-mix(in srgb, var(--bg) 88%, transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--b)}
+.nl{font-size:12px;font-weight:500;letter-spacing:.2em;text-transform:uppercase}
+.nt{font-size:8px;font-family:'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--sec);margin-top:2px}
+.nm{display:flex;gap:26px;list-style:none}
+.nm a{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--sec);display:flex;align-items:center;gap:5px;transition:color .2s;cursor:none}
+.nm a:hover{color:var(--tx)}.nm .nn{color:var(--ac);font-size:7.5px}
+.ncta{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx);background:none;border:1px solid var(--bA);padding:9px 18px;cursor:none;transition:background .2s}
+.ncta:hover{background:var(--acD)}
+
+/* Hero: fixed 100vh, chrome allowed to overflow:hidden since content is short */
+#hero{height:100vh;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.sc{max-width:1200px;margin:0 auto;padding:0 48px;width:100%;position:relative;z-index:3}
+.scan{position:absolute;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(to bottom,transparent 0,transparent 3px,rgba(0,0,0,.022) 3px,rgba(0,0,0,.022) 4px)}
+.bk{position:absolute;width:28px;height:28px;z-index:4;opacity:0}
+.bk1{top:72px;left:48px;border-top:1px solid var(--ac);border-left:1px solid var(--ac)}
+.bk2{top:72px;right:48px;border-top:1px solid var(--ac);border-right:1px solid var(--ac)}
+.bk3{bottom:62px;left:48px;border-bottom:1px solid var(--ac);border-left:1px solid var(--ac)}
+.bk4{bottom:62px;right:48px;border-bottom:1px solid var(--ac);border-right:1px solid var(--ac)}
+.htc{position:absolute;top:80px;left:84px;z-index:4;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;color:var(--sec);line-height:1.9;opacity:0}
+.rec{display:flex;align-items:center;gap:6px;color:var(--ac);margin-bottom:2px}
+.rec::before{content:'';width:5px;height:5px;background:var(--ac);border-radius:50%;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.hsr{position:absolute;top:80px;right:84px;z-index:4;text-align:right;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--sec);line-height:1.9;opacity:0}
+.hsr .sn{color:var(--tx);font-size:10px;display:block;margin-bottom:3px}
+.orig{position:absolute;bottom:62px;left:84px;z-index:4;display:flex;align-items:center;gap:12px;opacity:0}
+.orig-lbl{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--sec);display:block;margin-top:3px}
+
+/* Film-strip footer bar, repeated per section */
+.strip{position:relative;z-index:4;display:flex;align-items:center;justify-content:space-between;padding:10px 48px;background:color-mix(in srgb, var(--bg) 63%, transparent);backdrop-filter:blur(10px);border-top:1px solid var(--b);opacity:0}
+#hero .strip{position:absolute;bottom:0;left:0;right:0}
+.strip-l,.strip-r{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--sec)}
+.snav{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+.sna{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--sec);display:flex;align-items:center;gap:5px;cursor:none;transition:color .2s}
+.sna:hover{color:var(--tx)}.sna.on{color:var(--ac)}.sna .n{color:var(--ac);font-size:6px}
+
+.hc{position:relative;z-index:3;padding-bottom:150px}
+.kk{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.28em;text-transform:uppercase;color:var(--ac);margin-bottom:18px;display:flex;align-items:center;gap:12px;opacity:0}
+.kk::before{content:'';width:32px;height:1px;background:var(--ac)}
+.hh{font-family:'Cormorant Garamond',serif;font-size:clamp(54px,8.5vw,118px);font-weight:300;line-height:.92;letter-spacing:-.025em;text-transform:uppercase;margin-bottom:26px}
+.w{display:inline-block;overflow:hidden;vertical-align:bottom;margin-right:.1em}
+.wi{display:block}
+/* Hero headline only: SplitText generates .word/.char automatically (default
+   class names, not custom-configured) — .word gets the overflow:hidden mask
+   this used to get from the hand-built .w wrapper, .char is what actually
+   animates. Kept separate from .w/.wi above, which .stit headings elsewhere
+   on the page still use for their own anime.js reveal. */
+#h1words .word{display:inline-block;overflow:hidden;vertical-align:bottom}
+#h1words .char{display:inline-block;will-change:transform,opacity}
+#h1words .hh-ac{color:var(--ac);font-style:italic}
+.hsub{font-size:13.5px;font-weight:300;color:var(--sec);line-height:1.65;max-width:360px;opacity:0}
+.hbtns{display:flex;gap:13px;margin-top:34px;opacity:0}
+.bp{display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--bg);background:var(--ac);border:1px solid var(--ac);padding:13px 26px;cursor:none;transition:opacity .2s}
+.bp:hover{opacity:.85}
+.bg_{display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--sec);background:none;border:1px solid var(--b);padding:13px 26px;cursor:none;transition:border-color .2s,color .2s}
+.bg_:hover{border-color:var(--sec);color:var(--tx)}
+
+/* Content sections: auto-height, NOT clipped — only hero is a fixed 100vh box */
+.section{min-height:100vh;height:auto;position:relative;padding:120px 0 0}
+.snum{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ac);margin-bottom:16px;display:flex;align-items:center;gap:12px;opacity:0}
+.snum::after{content:'';flex:1;height:1px;background:var(--bA);max-width:64px}
+.stit{font-family:'Cormorant Garamond',serif;font-size:clamp(34px,5vw,66px);font-weight:300;line-height:1.04;letter-spacing:-.02em;text-transform:uppercase;margin-bottom:22px}
+.sbod{font-size:13.5px;font-weight:300;color:var(--sec);line-height:1.7;max-width:460px}
+.section-inner{padding-bottom:64px}
+
+#features{background:var(--sf)}
+.fg{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:54px}
+.fc{background:var(--bg);padding:36px 26px;border-top:2px solid transparent;position:relative;overflow:hidden;transition:border-color .3s;opacity:0}
+.fc:hover{border-top-color:var(--ac)}
+.fc::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at var(--mx,50%) var(--my,50%),var(--acD),transparent 60%);opacity:0;transition:opacity .3s;z-index:0}
+.fc:hover::before{opacity:1}
+.fcn{font-family:'Cormorant Garamond',serif;font-size:88px;font-weight:300;color:var(--acD);position:absolute;top:6px;right:12px;line-height:1}
+.fct{font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:400;color:var(--tx);margin-bottom:12px;position:relative;z-index:1}
+.fcb{font-size:13px;font-weight:300;color:var(--sec);line-height:1.65;position:relative;z-index:1}
+
+#stats{background:var(--bg)}
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:54px;border-top:1px solid var(--b);border-bottom:1px solid var(--b)}
+.si{padding:48px 28px;opacity:0;border-right:1px solid var(--b)}
+.si:last-child{border-right:none}
+.sinum{font-family:'Cormorant Garamond',serif;font-size:72px;font-weight:300;color:var(--ac);line-height:1;margin-bottom:8px}
+.siunit{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--sec);margin-bottom:6px}
+.silbl{font-size:12px;color:var(--sec);font-weight:300}
+
+#kontakt{background:var(--bg)}
+.kg{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.kth{font-family:'Cormorant Garamond',serif;font-size:clamp(36px,5vw,68px);font-weight:300;line-height:1.04;text-transform:uppercase}
+.ksub{font-size:13px;font-weight:300;color:var(--sec);line-height:1.7;margin-top:16px}
+.ka{display:flex;flex-direction:column;gap:10px}
+.cb{display:flex;align-items:center;gap:15px;padding:20px 22px;border:1px solid var(--b);cursor:none;transition:border-color .25s,background .25s;opacity:0}
+.cb:hover{border-color:var(--ac);background:var(--acD)}
+.cbi{width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:var(--acD);border:1px solid var(--bA);flex-shrink:0;font-size:18px}
+.cbt{flex:1}
+.cbl{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--sec);margin-bottom:3px}
+.cbv{font-size:14px;color:var(--tx)}
+.cba{color:var(--sec);font-size:18px;transition:transform .25s,color .25s}
+.cb:hover .cba{transform:translateX(4px);color:var(--ac)}
+
+footer{padding:28px 48px;border-top:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;background:var(--bg)}
+.ftl{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--sec)}
+.ftr{display:flex;gap:20px}
+.ftr a{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--sec);cursor:none;transition:color .2s}
+.ftr a:hover{color:var(--tx)}
+
+@media(max-width:900px){.nm,.dots,.snav{display:none}.kg{grid-template-columns:1fr}.fg{grid-template-columns:1fr}.sg{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.hh{font-size:46px}.sc{padding:0 24px}body{cursor:auto}#cur,#curR{display:none}footer{padding:24px 24px;flex-direction:column;gap:12px}.htc,.hsr,.orig,.bk{display:none}.hc{padding-bottom:40px}}
+</style>
+</head>
+<body>
+<div id="cur"></div><div id="curR"></div>
+<div class="dots">
+  <button class="dot on" data-target="hero"></button>
+  <button class="dot" data-target="features"></button>
+  <button class="dot" data-target="stats"></button>
+  <button class="dot" data-target="kontakt"></button>
+</div>
+<nav id="nav">
+  <div><div class="nl">[Brand]</div><div class="nt">[Kicker]</div></div>
+  <ul class="nm">
+    <li><a href="#features"><span class="nn">02</span>[Features]</a></li>
+    <li><a href="#stats"><span class="nn">03</span>[Stats]</a></li>
+    <li><a href="#kontakt"><span class="nn">04</span>[Kontakt]</a></li>
+  </ul>
+  <button class="ncta">Menü</button>
+</nav>
+
+<section id="hero" style="background:linear-gradient(160deg,#2C1A0A 0%,#4A2E18 45%,#060503 100%)">
+  <div style="position:absolute;inset:0;background:linear-gradient(to right,#060503CC 30%,transparent 100%),linear-gradient(to top,#060503EE 0%,transparent 45%)"></div>
+  <div class="scan"></div>
+  <div class="bk bk1" id="bk1"></div><div class="bk bk2" id="bk2"></div>
+  <div class="bk bk3" id="bk3"></div><div class="bk bk4" id="bk4"></div>
+  <div class="htc" id="htc">
+    <div class="rec">REC ● LIVE</div>
+    <div id="tc">TC 00:00:00:00</div>
+    <div>SEKTION 01 / 04</div>
+    <div>FRAME 001 / 240</div>
+  </div>
+  <div class="hsr" id="hsr"><span class="sn">01 / HERO</span>[Brand]</div>
+  <div class="orig" id="orig">
+    <span style="font-size:20px">[emoji badge]</span>
+    <div><span class="orig-lbl">[origin label]</span></div>
+  </div>
+  <div class="sc hc">
+    <div class="kk" id="kk">[KICKER TEXT]</div>
+    <h1 class="hh" id="h1words">[Headline line one] <span class="hh-ac">[Headline accent phrase]</span></h1>
+    <p class="hsub" id="hsub">[One powerful sentence about the product, max 12 words.]</p>
+    <div class="hbtns" id="hbtns">
+      <a href="#kontakt" class="bp">↗ [CTA text]</a>
+      <a href="#features" class="bg_">[Secondary link]</a>
+    </div>
+  </div>
+  <div class="strip" id="strip">
+    <div class="strip-l">W 01 · [BRAND]</div>
+    <div class="snav">
+      <a href="#hero" class="sna on"><span class="n">01</span>Hero</a>
+      <a href="#features" class="sna"><span class="n">02</span>Features</a>
+      <a href="#stats" class="sna"><span class="n">03</span>Stats</a>
+      <a href="#kontakt" class="sna"><span class="n">04</span>Kontakt</a>
+    </div>
+    <div class="strip-r">SCRUB AKTIV · 1920×1080</div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="sc section-inner">
+    <div class="snum" id="fn">02 / [Features]</div>
+    <h2 class="stit" id="fh"><span class="w"><span class="wi">[Section title]</span></span></h2>
+    <div class="fg">
+      <div class="fc" id="fc0"><div class="fcn">01</div><div class="fct">[Feature title]</div><div class="fcb">[2-sentence benefit description.]</div></div>
+      <div class="fc" id="fc1"><div class="fcn">02</div><div class="fct">[Feature title]</div><div class="fcb">[2-sentence benefit description.]</div></div>
+      <div class="fc" id="fc2"><div class="fcn">03</div><div class="fct">[Feature title]</div><div class="fcb">[2-sentence benefit description.]</div></div>
+    </div>
+  </div>
+  <div class="strip" style="opacity:1">
+    <div class="strip-l">W 02 · FEATURES</div>
+    <div class="snav">
+      <a href="#hero" class="sna"><span class="n">01</span>Hero</a>
+      <a href="#features" class="sna on"><span class="n">02</span>Features</a>
+      <a href="#stats" class="sna"><span class="n">03</span>Stats</a>
+      <a href="#kontakt" class="sna"><span class="n">04</span>Kontakt</a>
+    </div>
+    <div class="strip-r">3 ITEMS</div>
+  </div>
+</section>
+
+<section class="section" id="stats">
+  <div class="sc section-inner">
+    <div class="snum" id="stn">03 / [Stats]</div>
+    <h2 class="stit" id="sth"><span class="w"><span class="wi">[Section title]</span></span></h2>
+    <div class="sg">
+      <div class="si" id="si0"><div class="sinum">[00]</div><div class="siunit">[unit]</div><div class="silbl">[label]</div></div>
+      <div class="si" id="si1"><div class="sinum">[00]</div><div class="siunit">[unit]</div><div class="silbl">[label]</div></div>
+      <div class="si" id="si2"><div class="sinum">[00]</div><div class="siunit">[unit]</div><div class="silbl">[label]</div></div>
+    </div>
+  </div>
+  <div class="strip" style="opacity:1">
+    <div class="strip-l">W 03 · STATS</div>
+    <div class="snav">
+      <a href="#hero" class="sna"><span class="n">01</span>Hero</a>
+      <a href="#features" class="sna"><span class="n">02</span>Features</a>
+      <a href="#stats" class="sna on"><span class="n">03</span>Stats</a>
+      <a href="#kontakt" class="sna"><span class="n">04</span>Kontakt</a>
+    </div>
+    <div class="strip-r">3 STATS</div>
+  </div>
+</section>
+
+<section class="section" id="kontakt">
+  <div class="sc section-inner">
+    <div class="kg">
+      <div>
+        <div class="snum" id="kn">04 / [Kontakt]</div>
+        <h2 class="kth" id="kwords">
+          <span class="w"><span class="wi">[Ready?]</span></span>
+        </h2>
+        <p class="ksub">[No forms. Direct communication.]</p>
+      </div>
+      <div class="ka">
+        <a href="#" class="cb" id="cb1"><div class="cbi">💬</div><div class="cbt"><div class="cbl">WhatsApp</div><div class="cbv">[value]</div></div><div class="cba">→</div></a>
+        <a href="#" class="cb" id="cb2"><div class="cbi">📞</div><div class="cbt"><div class="cbl">Telefon</div><div class="cbv">[value]</div></div><div class="cba">→</div></a>
+        <a href="#" class="cb" id="cb3"><div class="cbi">✉</div><div class="cbt"><div class="cbl">E-Mail</div><div class="cbv">[value]</div></div><div class="cba">→</div></a>
+      </div>
+    </div>
+  </div>
+  <div class="strip" style="opacity:1">
+    <div class="strip-l">W 04 · KONTAKT</div>
+    <div class="snav">
+      <a href="#hero" class="sna"><span class="n">01</span>Hero</a>
+      <a href="#features" class="sna"><span class="n">02</span>Features</a>
+      <a href="#stats" class="sna"><span class="n">03</span>Stats</a>
+      <a href="#kontakt" class="sna on"><span class="n">04</span>Kontakt</a>
+    </div>
+    <div class="strip-r">DIREKT · OHNE FORMULARE</div>
+  </div>
+</section>
+
+<footer><div class="ftl">© [Year] [Brand]</div><div class="ftr"><a href="#">Impressum</a><a href="#">Datenschutz</a></div></footer>
+
+<script>
+// Custom cursor: solid dot follows exactly, ring lags behind (11% ease per frame).
+const cur=document.getElementById('cur'),curR=document.getElementById('curR');
+let rx=0,ry=0,mx=0,my=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px'});
+(function t(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;curR.style.left=rx+'px';curR.style.top=ry+'px';requestAnimationFrame(t)})();
+document.querySelectorAll('a,button,.fc,.cb').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{cur.style.width='14px';cur.style.height='14px';curR.style.width='44px';curR.style.height='44px'});
+  el.addEventListener('mouseleave',()=>{cur.style.width='6px';cur.style.height='6px';curR.style.width='28px';curR.style.height='28px'});
+});
+
+const SECTION_IDS=['hero','features','stats','kontakt'];
+function goto(id){document.getElementById(id).scrollIntoView({behavior:'smooth'})}
+document.querySelectorAll('.dot').forEach(d=>d.onclick=()=>goto(d.dataset.target));
+
+function animW(el,delay){
+  if(!el)return;
+  anime({targets:el.querySelectorAll('.wi'),translateY:['110%','0%'],duration:900,delay:anime.stagger(55,{start:delay||0}),easing:'cubicBezier(0.4,0,0.2,1)'});
+}
+function fadeIn(els,delay,stag){
+  anime({targets:els,opacity:[0,1],translateY:[18,0],duration:680,delay:anime.stagger(stag||80,{start:delay||0}),easing:'cubicBezier(0.4,0,0.2,1)'});
+}
+
+// GSAP: hero only (SplitText char reveal, ScrollTrigger pin + scrub scale).
+// Guarded the same way as the anime.js check below — #h1words is plain
+// text by default (see markup comment at top of file), so if these CDN
+// scripts fail to load, gsapReady is false, nothing here runs, and the
+// headline is already sitting there visible. Nothing to fall back to.
+const gsapReady = typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined' && typeof SplitText !== 'undefined';
+let heroChars = null;
+if (gsapReady) {
+  gsap.registerPlugin(ScrollTrigger, SplitText);
+  // wordsClass/charsClass explicit: verified against a live run that this
+  // GSAP version does NOT add semantic class names by default (elements
+  // came back as unstyled divs, .word/.char selectors matched nothing) —
+  // without these, the CSS mask/animation rules below are dead code.
+  const heroSplit = SplitText.create('#h1words', { type: 'chars,words', wordsClass: 'word', charsClass: 'char' });
+  heroChars = heroSplit.chars;
+  gsap.set(heroChars, { opacity: 0, y: 20 });
+}
+function gsapRevealHero(delayMs){
+  if (!heroChars) return;
+  gsap.to(heroChars, { opacity:1, y:0, duration:0.7, stagger:0.03, delay:(delayMs||0)/1000, ease:'power2.out' });
+}
+function gsapSetupScroll(){
+  if (!gsapReady) return;
+  // Priority 2: pin #hero so it holds in place while #features scrolls up
+  // and covers it — desktop only (min-width:900px). Pin effects fight
+  // mobile viewport resize (address bar show/hide) more than they're worth
+  // there; .htc/.hsr/.orig/.bk are already hidden below 600px for the same
+  // "don't fight mobile" reasoning, this follows that precedent.
+  ScrollTrigger.matchMedia({
+    '(min-width: 900px)': function(){
+      ScrollTrigger.create({ trigger:'#hero', start:'top top', end:'+=100%', pin:true, pinSpacing:false });
+    }
+  });
+  // Priority 3: headline scales 1 -> 0.85 tied directly to scroll position
+  // through the hero (scrub:1 smooths it with a 1s catch-up, not instant).
+  gsap.to('#h1words', {
+    scale:0.85, ease:'none',
+    scrollTrigger:{ trigger:'#hero', start:'top top', end:'bottom top', scrub:1 }
+  });
+}
+
+// If anime.js failed to load (CDN blocked), reveal everything immediately
+// instead of leaving the page stuck at opacity:0.
+if (typeof anime === 'undefined') {
+  document.querySelectorAll('[id]').forEach(el => { el.style.opacity = '1'; });
+} else {
+  window.addEventListener('load',()=>{
+    anime({targets:['#bk1','#bk2','#bk3','#bk4'],opacity:[0,1],duration:600,delay:anime.stagger(70,{start:200}),easing:'easeOutQuart'});
+    fadeIn(['#htc','#hsr'],300,100);
+    anime({targets:'#kk',opacity:[0,1],translateY:[8,0],duration:700,delay:450,easing:'cubicBezier(.4,0,.2,1)'});
+    gsapRevealHero(550);
+    gsapSetupScroll();
+    fadeIn(['#hsub','#hbtns'],1000,120);
+    fadeIn(['#orig','#strip'],750,100);
+  });
+
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(!entry.isIntersecting)return;
+      const id=entry.target.id;
+      document.querySelectorAll('.dot').forEach(d=>d.classList.toggle('on',d.dataset.target===id));
+      document.getElementById('nav').classList.toggle('s',id!==SECTION_IDS[0]);
+      document.querySelectorAll('.sna').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+id));
+      if(id==='features'){
+        fadeIn('#fn',0);animW(document.getElementById('fh'),100);
+        anime({targets:['#fc0','#fc1','#fc2'],opacity:[0,1],translateY:[24,0],duration:700,delay:anime.stagger(110,{start:250}),easing:'cubicBezier(.4,0,.2,1)'});
+      }
+      if(id==='stats'){
+        fadeIn('#stn',0);animW(document.getElementById('sth'),100);
+        ['#si0','#si1','#si2'].forEach((s,i)=>{
+          anime({targets:s,opacity:[0,1],translateY:[20,0],duration:700,delay:200+i*120,easing:'cubicBezier(.4,0,.2,1)'});
+        });
+      }
+      if(id==='kontakt'){
+        fadeIn('#kn',0);animW(document.getElementById('kwords'),100);
+        fadeIn(['#cb1','#cb2','#cb3'],350,100);
+      }
+      obs.unobserve(entry.target);
+    });
+  },{threshold:.35});
+  document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+}
+
+document.querySelectorAll('.fc').forEach(card=>{
+  card.addEventListener('mousemove',e=>{const r=card.getBoundingClientRect();card.style.setProperty('--mx',((e.clientX-r.left)/r.width*100)+'%');card.style.setProperty('--my',((e.clientY-r.top)/r.height*100)+'%')});
+});
+
+const tc=document.getElementById('tc');let f=0;
+setInterval(()=>{f++;const s=String(Math.floor(f/30)).padStart(2,'0'),fr=String(f%30).padStart(2,'0');if(tc)tc.textContent='TC 00:00:'+s+':'+fr},1000/30);
+window.addEventListener('scroll',()=>document.getElementById('nav').classList.toggle('s',window.scrollY>40));
+</script>
+</body>
+</html>
