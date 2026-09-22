@@ -15,9 +15,13 @@ entering the German market. Real client project, currently in development.
 - Dockerfile + deploy config for container hosting; GitHub Pages for the public preview
 
 ## How it was built
-The site was produced with an AI-assisted agentic workflow (Claude API):
-separate agent roles for research, design and frontend, with me reviewing and integrating the output.
-
+Built with Claude Code driven by a custom agent specification ([CLAUDE.md](CLAUDE.md)):
+- **Locked-template methodology:** new pages reuse pre-built, tested templates from `templates/`,
+  and only content and design tokens are substituted. This keeps output consistent between runs.
+- **Security rule:** content is filled in at build time. No client-side LLM calls, so no exposed API keys.
+- **QA checklist** the agent runs before delivery: mobile nav, working links, language consistency,
+  and a real z-index bug found on this site and documented as a rule.
+  
 ## Structure
 - `css/`: styles and design tokens
 - `fonts/`: self-hosted web fonts
